@@ -1,0 +1,42 @@
+cmake_minimum_required(VERSION 3.5.2)
+project(ios_minicap)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -Wall -g")
+
+set(SOURCE_FILES
+        src/minicap.cpp
+        src/SimpleServer.cpp src/SimpleServer.hpp
+        src/FrameListener.cpp src/FrameListener.hpp
+        src/Banner.cpp src/Banner.hpp
+        src/JpegEncoder.cpp src/JpegEncoder.hpp
+        src/TiffDecoder.cpp src/TiffDecoder.hpp
+        src/PngDecoder.cpp src/PngDecoder.hpp
+        src/ScreenshotClient.cpp src/ScreenshotClient.hpp
+        src/StreamClient.mm src/StreamClient.h
+        src/Projection.hpp
+        src/minicap.hpp)
+
+add_executable(ios_minicap ${SOURCE_FILES})
+
+find_package (png)
+if (PNG_FOUND)
+    include_directories(${PNG_INCLUDE_DIRS})
+    target_link_libraries (ios_minicap ${PNG_LIBRARIES})
+endif (PNG_FOUND)
+
+include_directories(
+        /usr/local/opt/jpeg-turbo/include
+)
+
+target_link_libraries (ios_minicap
+        "-framework Foundation"
+        "-framework CoreFoundation"
+        "-framework CoreMedia"
+        "-framework CoreVideo"
+        "-framework CoreMediaIO"
+        "-framework AVFoundation"
+        /usr/local/opt/jpeg-turbo/lib/libturbojpeg.a
+
+        -limobiledevice
+        -ltiff
+        -ltiffxx)
