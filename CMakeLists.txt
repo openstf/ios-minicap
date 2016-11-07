@@ -36,7 +36,6 @@ target_link_libraries (ios_minicap
         "-framework CoreMediaIO"
         "-framework AVFoundation"
         /usr/local/opt/jpeg-turbo/lib/libturbojpeg.a
-
         -limobiledevice
         -ltiff
         -ltiffxx)

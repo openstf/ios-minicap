@@ -103,7 +103,6 @@ int main(int argc, char **argv) {
     setup_signal_handler();
     parse_args(argc, argv, &udid, &port);
 
-//    ScreenshotClient screenshotClient(udid);
     StreamClient client;
     if (!client.setupDevice(udid)) {
         return ERROR;
@@ -116,7 +115,7 @@ int main(int argc, char **argv) {
 
     Frame frame;
 
-    client.getFrame(&frame);
+    client.lockFrame(&frame);
     std::cout << "resolution: " << frame.width << "x" << frame.height << std::endl;
     JpegEncoder encoder(frame.width, frame.height);
 
@@ -129,6 +128,8 @@ int main(int argc, char **argv) {
     desiredInfo.width = frame.width;
 
     Banner banner(realInfo, desiredInfo);
+    client.releaseFrame(&frame);
+
 
     SimpleServer server;
     server.start(port);
@@ -145,13 +146,14 @@ int main(int argc, char **argv) {
         int pending;
         while (gWaiter.isRunning() and (pending = gWaiter.waitForFrame()) > 0) {
             std::cout << pending << std::endl;
-            client.getFrame(&frame);
+            client.lockFrame(&frame);
             encoder.encode((unsigned char*)frame.data, frame.width, frame.height);
 
             memcpy(&data[4], encoder.getEncodedData(), encoder.getEncodedSize());
             putUInt32LE(data, encoder.getEncodedSize());
             send(socket, data, encoder.getEncodedSize() + 4, 0);
-
+            client.releaseFrame(&frame);
+            std::cout << "send" << std::endl;
         }
     }
 

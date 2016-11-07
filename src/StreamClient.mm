@@ -35,6 +35,15 @@
     return self;
 }
 
+- (void)dealloc
+{
+    [self.session release];
+    [self.device release];
+    [self.videoDataOutput release];
+    [self.videoDeviceInput release];
+    [super dealloc];
+}
+
 - (void) waitForDevice ; {
     NSNotificationCenter *notiCenter = [NSNotificationCenter defaultCenter];
     id connObs =[notiCenter addObserverForName:AVCaptureDeviceWasConnectedNotification
@@ -44,12 +53,29 @@
     {
         NSLog(@"device added");
     }];
-    [[NSRunLoop mainRunLoop] run];
+
+    [notiCenter addObserverForName:@"TestNotification"
+        object:nil
+        queue:[NSOperationQueue mainQueue]
+        usingBlock:^(NSNotification *note)
+        {
+            NSLog(@"device added");
+        }];
+
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:@"TestNotification"
+        object:self];
+
+    [[NSRunLoop currentRunLoop] run];
 }
 
-- (bool) setupDevice:(NSString *)udid; {
+- (bool) setupDevice:(NSString *)udid ; {
 
-    [self waitForDevice];
+//    [self waitForDevice];
+//    NSThread* myThread = [[NSThread alloc] initWithTarget:self
+//        selector:@selector(waitForDevice:)
+//        object:nil];
+//    [myThread start];  // Actually create the thread
     for (AVCaptureDevice *device in [AVCaptureDevice devices]) {
         NSLog(@"%@", device.uniqueID);
     }
@@ -63,11 +89,11 @@
     //    self.device = [AVCaptureDevice devicesWithMediaType:AVMediaTypeMuxed][0];
     //    self.device = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo][0];
 
-        int fps = 5;  // Change this value
-        [self.device lockForConfiguration:nil];
-        [self.device setActiveVideoMinFrameDuration:CMTimeMake(1, fps)];
-    //    [self.device setActiveVideoMaxFrameDuration:CMTimeMake(1, fps)];
-        [self.device unlockForConfiguration];
+//        int fps = 5;  // Change this value
+//        [self.device lockForConfiguration:nil];
+//        [self.device setActiveVideoMinFrameDuration:CMTimeMake(1, fps)];
+//        [self.device setActiveVideoMaxFrameDuration:CMTimeMake(1, fps)];
+//        [self.device unlockForConfiguration];
 
     [self.session beginConfiguration];
 
@@ -88,7 +114,6 @@
     // Add session output
     self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
     self.videoDataOutput.alwaysDiscardsLateVideoFrames = YES;
-
     self.videoDataOutput.videoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
 //            AVVideoScalingModeResizeAspectFill, (id)AVVideoScalingModeKey,
 //            [NSNumber numberWithDouble:320.0], (id)kCVPixelBufferWidthKey,
@@ -96,29 +121,17 @@
         [NSNumber numberWithUnsignedInt:kCVPixelFormatType_32BGRA], (id)kCVPixelBufferPixelFormatTypeKey,
         nil];
 
-    dispatch_queue_t videoQueue = dispatch_queue_create("videoQueue", NULL);
+    dispatch_queue_t videoQueue = dispatch_queue_create("videoQueue", DISPATCH_QUEUE_SERIAL);
 
     [self.videoDataOutput setSampleBufferDelegate:self queue:videoQueue];
-    [self.session addOutput:self.videoDataOutput];
 
+    [self.session addOutput:self.videoDataOutput];
     [self.session commitConfiguration];
     return true;
 }
 
 - (void) captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-
-    CVPixelBufferLockBaseAddress(imageBuffer, 0);
-
-    self.width = CVPixelBufferGetWidth(imageBuffer);
-    self.height = CVPixelBufferGetHeight(imageBuffer);
-    self.size = CVPixelBufferGetDataSize(imageBuffer);
-    self.pixelFormat = CVPixelBufferGetPixelFormatType(imageBuffer);
-    self.data = (char*)CVPixelBufferGetBaseAddress(imageBuffer);
-
-    self.client->newFrame(self.data, self.size, self.width, self.height);
-
-    CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+    self.client->captureOutput(sampleBuffer);
 }
 
 @end
@@ -153,6 +166,9 @@ StreamClient::StreamClient() {
     mWidth = 0;
     mHeight = 0;
     mFrameAvailable = false;
+
+    mBuffer = 0;
+    mLockedBuffer = 0;
 }
 
 StreamClient::~StreamClient() {
@@ -160,8 +176,11 @@ StreamClient::~StreamClient() {
         [impl->mVideoSource release];
     }
     delete impl;
-    if(mFrameAvailable) {
-        delete mData;
+    if (mBuffer) {
+        CFRetain(mBuffer);
+    }
+    if (mLockedBuffer) {
+        CFRetain(mLockedBuffer);
     }
 }
 
@@ -178,30 +197,69 @@ void StreamClient::stop() {
     [impl->mVideoSource.session stopRunning];
 }
 
-void StreamClient::newFrame(char* data, size_t size, uint32_t width, uint32_t height) {
-    if(!mFrameAvailable){
-        std::cout << "initializing frame buffer" << std::endl;
-        mData = new char[size];
-    }
-    if (memcmp(mData, data, size) != 0) {
-        memcpy(mData, data, size);
-        mFrameAvailable = true;
-        if (mFrameListener) {
-            mFrameListener->onFrameAvailable();
+void StreamClient::captureOutput(CMSampleBufferRef buffer) {
+    FrameListener *listener = 0;
+
+    CFRetain(buffer);
+
+    { // scope for the lock
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mBuffer) {
+            listener = mFrameListener;
+        } else {
+            CFRelease(mBuffer);
         }
+        mBuffer = buffer;
     }
-    mSize = size;
-    mWidth = width;
-    mHeight = height;
+
+    if (listener) {
+        listener->onFrameAvailable();
+    }
 }
 
 void StreamClient::setFrameListener(FrameListener *listener) {
     mFrameListener = listener;
 }
 
-void StreamClient::getFrame(Frame *frame) {
-    frame->data = mData;
-    frame->size = mSize;
-    frame->width = mWidth;
-    frame->height = mHeight;
+void StreamClient::lockFrame(Frame *frame) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    if (!mBuffer) {
+        // TODO: handle don't have any buffer
+        std::cout << "Trying to lockFrame without buffer" << std::endl;
+        return;
+    }
+
+    if (mLockedBuffer) {
+        // TODO: handle already have locked buffer
+        std::cout << "Trying to lockFrame, but already have a locked buffer" << std::endl;
+        return;
+    }
+
+    mLockedBuffer = mBuffer;
+    mBuffer = 0;
+
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(mLockedBuffer);
+
+    CVPixelBufferLockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
+    frame->width = CVPixelBufferGetWidth(imageBuffer);
+    frame->height = CVPixelBufferGetHeight(imageBuffer);
+    frame->data = CVPixelBufferGetBaseAddress(imageBuffer);
+    frame->size = CVPixelBufferGetDataSize(imageBuffer);
+    //    frame->format = CVPixelBufferGetPixelFormatType(imageBuffer);
+}
+
+void StreamClient::releaseFrame(Frame *frame) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    if (!mLockedBuffer) {
+        // TODO: handle releasing frame without locked buffer
+        std::cout << "Trying to releaseFrame without locked buffer" << std::endl;
+        return;
+    }
+
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(mLockedBuffer);
+    CVPixelBufferUnlockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
+    CFRelease(mLockedBuffer);
+    mLockedBuffer = 0;
 }

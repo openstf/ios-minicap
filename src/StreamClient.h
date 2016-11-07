@@ -1,6 +1,8 @@
 #ifndef IOS_MINICAP_STREAMCLIENT_HPP
 #define IOS_MINICAP_STREAMCLIENT_HPP
 
+typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
+
 #include <cstdio>
 #include <cstdint>
 
@@ -15,10 +17,12 @@ public:
     ~StreamClient();
     void start();
     void stop();
-    void newFrame(char* data, size_t size, uint32_t width, uint32_t height);
+    void captureOutput(CMSampleBufferRef buffer);
     bool setupDevice(const char *udid);
     void setFrameListener(FrameListener *listener);
 
+    void lockFrame(Frame *frame);
+    void releaseFrame(Frame *frame);
     void getFrame(Frame *frame);
 
 private:
@@ -29,6 +33,9 @@ private:
     uint32_t mHeight;
     bool mFrameAvailable;
     FrameListener *mFrameListener;
+    std::mutex mMutex;
+    CMSampleBufferRef mBuffer;
+    CMSampleBufferRef mLockedBuffer;
 };
 
 
