@@ -7,18 +7,12 @@
 
 @interface VideoSource : NSObject <AVCaptureVideoDataOutputSampleBufferDelegate>
 
-@property (assign) AVCaptureSession *session;
-@property (assign) AVCaptureDevice *device;
-@property (assign) AVCaptureDeviceInput *videoDeviceInput;
-@property (assign) AVCaptureVideoDataOutput *videoDataOutput;
+@property (assign) AVCaptureSession *mSession;
+@property (assign) AVCaptureDevice *mDevice;
+@property (assign) AVCaptureDeviceInput *mDeviceInput;
+@property (assign) AVCaptureVideoDataOutput *mDeviceOutput;
 
-@property (assign) size_t width;
-@property (assign) size_t height;
-@property (assign) size_t size;
-@property (assign) char* data;
-@property (assign) OSType pixelFormat;
-
-@property (assign) StreamClient *client;
+@property (assign) StreamClient *mClient;
 
 - (id) init:(StreamClient *)client;
 
@@ -29,92 +23,59 @@
 - (id) init:(StreamClient *)client; {
     [super init];
 
-    self.client = client;
-    self.session = [[AVCaptureSession alloc] init];
+    self.mClient = client;
+    self.mSession = [[AVCaptureSession alloc] init];
 
     return self;
 }
 
 - (void)dealloc
 {
-    [self.session release];
-    [self.device release];
-    [self.videoDataOutput release];
-    [self.videoDeviceInput release];
+    [self.mSession release];
+    [self.mDevice release];
+    [self.mDeviceOutput release];
+    [self.mDeviceInput release];
     [super dealloc];
-}
-
-- (void) waitForDevice ; {
-    NSNotificationCenter *notiCenter = [NSNotificationCenter defaultCenter];
-    id connObs =[notiCenter addObserverForName:AVCaptureDeviceWasConnectedNotification
-            object:nil
-    queue:[NSOperationQueue mainQueue]
-    usingBlock:^(NSNotification *note)
-    {
-        NSLog(@"device added");
-    }];
-
-    [notiCenter addObserverForName:@"TestNotification"
-        object:nil
-        queue:[NSOperationQueue mainQueue]
-        usingBlock:^(NSNotification *note)
-        {
-            NSLog(@"device added");
-        }];
-
-    [[NSNotificationCenter defaultCenter]
-        postNotificationName:@"TestNotification"
-        object:self];
-
-    [[NSRunLoop currentRunLoop] run];
 }
 
 - (bool) setupDevice:(NSString *)udid ; {
 
-//    [self waitForDevice];
-//    NSThread* myThread = [[NSThread alloc] initWithTarget:self
-//        selector:@selector(waitForDevice:)
-//        object:nil];
-//    [myThread start];  // Actually create the thread
     for (AVCaptureDevice *device in [AVCaptureDevice devices]) {
         NSLog(@"%@", device.uniqueID);
     }
 
-    self.device = [AVCaptureDevice deviceWithUniqueID: udid];
+    self.mDevice = [AVCaptureDevice deviceWithUniqueID: udid];
 
-    if (self.device == nil) {
+    if (self.mDevice == nil) {
         NSLog(@"device with udid '%@' not found", udid);
         return false;
     }
-    //    self.device = [AVCaptureDevice devicesWithMediaType:AVMediaTypeMuxed][0];
-    //    self.device = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo][0];
-
 //        int fps = 5;  // Change this value
-//        [self.device lockForConfiguration:nil];
-//        [self.device setActiveVideoMinFrameDuration:CMTimeMake(1, fps)];
-//        [self.device setActiveVideoMaxFrameDuration:CMTimeMake(1, fps)];
-//        [self.device unlockForConfiguration];
+//        [self.mDevice lockForConfiguration:nil];
+//        [self.mDevice setActiveVideoMinFrameDuration:CMTimeMake(1, fps)];
+//        [self.mDevice setActiveVideoMaxFrameDuration:CMTimeMake(1, fps)];
+//        [self.mDevice unlockForConfiguration];
 
-    [self.session beginConfiguration];
+    [self.mSession beginConfiguration];
 
     //    [self configureCaptureSettings];
 
     // Add session input
     NSError *error;
-    self.videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:&error];
-    if (self.videoDeviceInput == nil) {
+    self.mDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:self.mDevice error:&error];
+    if (self.mDeviceInput == nil) {
         dispatch_async(dispatch_get_main_queue(), ^(void) {
             NSLog(@"%@", error);
         });
         return false;
     } else {
-        [self.session addInput:self.videoDeviceInput];
+        [self.mSession addInput:self.mDeviceInput];
     }
 
     // Add session output
-    self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
-    self.videoDataOutput.alwaysDiscardsLateVideoFrames = YES;
-    self.videoDataOutput.videoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
+    self.mDeviceOutput = [[AVCaptureVideoDataOutput alloc] init];
+    self.mDeviceOutput.alwaysDiscardsLateVideoFrames = YES;
+    self.mDeviceOutput.videoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
 //            AVVideoScalingModeResizeAspectFill, (id)AVVideoScalingModeKey,
 //            [NSNumber numberWithDouble:320.0], (id)kCVPixelBufferWidthKey,
     //        [NSNumber numberWithDouble:600.0], (id)kCVPixelBufferHeightKey,
@@ -123,15 +84,15 @@
 
     dispatch_queue_t videoQueue = dispatch_queue_create("videoQueue", DISPATCH_QUEUE_SERIAL);
 
-    [self.videoDataOutput setSampleBufferDelegate:self queue:videoQueue];
+    [self.mDeviceOutput setSampleBufferDelegate:self queue:videoQueue];
 
-    [self.session addOutput:self.videoDataOutput];
-    [self.session commitConfiguration];
+    [self.mSession addOutput:self.mDeviceOutput];
+    [self.mSession commitConfiguration];
     return true;
 }
 
 - (void) captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
-    self.client->captureOutput(sampleBuffer);
+    self.mClient->captureOutput(sampleBuffer);
 }
 
 @end
@@ -190,11 +151,11 @@ bool StreamClient::setupDevice(const char *udid) {
 }
 
 void StreamClient::start() {
-    [impl->mVideoSource.session startRunning];
+    [impl->mVideoSource.mSession startRunning];
 }
 
 void StreamClient::stop() {
-    [impl->mVideoSource.session stopRunning];
+    [impl->mVideoSource.mSession stopRunning];
 }
 
 void StreamClient::captureOutput(CMSampleBufferRef buffer) {
