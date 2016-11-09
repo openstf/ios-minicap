@@ -110,7 +110,9 @@ int main(int argc, char **argv) {
     client.setFrameListener(&gWaiter);
     client.start();
 
-    gWaiter.waitForFrame();
+    if (!gWaiter.waitForFrame()) {
+        return ERROR;
+    }
     client.stop();
 
     Frame frame;

@@ -23,15 +23,9 @@ public:
 
     void lockFrame(Frame *frame);
     void releaseFrame(Frame *frame);
-    void getFrame(Frame *frame);
 
 private:
     StreamClientImpl *impl;
-    char* mData;
-    size_t mSize;
-    uint32_t mWidth;
-    uint32_t mHeight;
-    bool mFrameAvailable;
     FrameListener *mFrameListener;
     std::mutex mMutex;
     CMSampleBufferRef mBuffer;

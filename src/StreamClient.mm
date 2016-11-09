@@ -20,7 +20,7 @@
 
 @implementation VideoSource
 
-- (id) init:(StreamClient *)client; {
+- (id) init:(StreamClient *)client ; {
     [super init];
 
     self.mClient = client;
@@ -29,8 +29,7 @@
     return self;
 }
 
-- (void)dealloc
-{
+- (void)dealloc ; {
     [self.mSession release];
     [self.mDevice release];
     [self.mDeviceOutput release];
@@ -38,7 +37,33 @@
     [super dealloc];
 }
 
+- (void) waitForDevice ; {
+    id connectionObserver = [[NSNotificationCenter defaultCenter]
+        addObserverForName:AVCaptureDeviceWasConnectedNotification
+        object:nil
+        queue:[NSOperationQueue mainQueue]
+        usingBlock:^(NSNotification *note)
+        {
+            NSLog(@"device added");
+        }];
+
+    [[NSNotificationCenter defaultCenter] addObserverForName:@"TestNotification"
+        object:nil
+        queue:[NSOperationQueue mainQueue]
+        usingBlock:^(NSNotification *note)
+        {
+            NSLog(@"test notification");
+        }];
+
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:@"TestNotification"
+        object:nil];
+    [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
+    [[NSNotificationCenter defaultCenter] removeObserver:connectionObserver];
+}
+
 - (bool) setupDevice:(NSString *)udid ; {
+    [self waitForDevice];
 
     for (AVCaptureDevice *device in [AVCaptureDevice devices]) {
         NSLog(@"%@", device.uniqueID);
@@ -122,11 +147,6 @@ StreamClient::StreamClient() {
 
     impl = new StreamClientImpl();
     impl->mVideoSource = [[VideoSource alloc] init: this];
-    mData = 0;
-    mSize = 0;
-    mWidth = 0;
-    mHeight = 0;
-    mFrameAvailable = false;
 
     mBuffer = 0;
     mLockedBuffer = 0;

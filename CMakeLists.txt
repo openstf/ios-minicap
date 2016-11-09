@@ -9,20 +9,10 @@ set(SOURCE_FILES
         src/FrameListener.cpp src/FrameListener.hpp
         src/Banner.cpp src/Banner.hpp
         src/JpegEncoder.cpp src/JpegEncoder.hpp
-        src/TiffDecoder.cpp src/TiffDecoder.hpp
-        src/PngDecoder.cpp src/PngDecoder.hpp
-        src/ScreenshotClient.cpp src/ScreenshotClient.hpp
         src/StreamClient.mm src/StreamClient.h
-        src/Projection.hpp
         src/minicap.hpp)
 
 add_executable(ios_minicap ${SOURCE_FILES})
-
-find_package (png)
-if (PNG_FOUND)
-    include_directories(${PNG_INCLUDE_DIRS})
-    target_link_libraries (ios_minicap ${PNG_LIBRARIES})
-endif (PNG_FOUND)
 
 include_directories(
         /usr/local/opt/jpeg-turbo/include
@@ -35,7 +25,4 @@ target_link_libraries (ios_minicap
         "-framework CoreVideo"
         "-framework CoreMediaIO"
         "-framework AVFoundation"
-        /usr/local/opt/jpeg-turbo/lib/libturbojpeg.a
-        -limobiledevice
-        -ltiff
-        -ltiffxx)
+        /usr/local/opt/jpeg-turbo/lib/libturbojpeg.a)
