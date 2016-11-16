@@ -11,7 +11,6 @@
 #include "Banner.hpp"
 #include "JpegEncoder.hpp"
 #include "StreamClient.h"
-#include "Projection.hpp"
 
 // MSG_NOSIGNAL does not exists on OS X
 #if defined(__APPLE__) || defined(__MACH__)
