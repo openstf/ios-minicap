@@ -45,7 +45,7 @@ node app.js
 
 Then open http://localhost:9002 in browser
 
-**Some devices have too big FPS. Frames are getting to example app trough the localhost connection too quickly, so it could not draw it quick enough. That could cause frames to delay.**
+**When device have big FPS, minicap is sending frames to example app trough the localhost connection too quickly, so it could not draw it quick enough. That could cause frames to delay.**
 
 ### Global header binary format
 
