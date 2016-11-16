@@ -24,6 +24,29 @@ You should now have the binaries available in `./build`.
 
 The minicap protocol is a simple push-based binary protocol. When you first connect to the socket, you get a global header followed by the first frame. The global header will not appear again. More frames keep getting sent until you stop minicap.
 
+Before run, please, check that:
+
+* the computer is trusted by the phone
+* the phone screen is not turned off
+
+You can try it using:
+
+```
+./run.sh
+```
+
+And in another window:
+
+```
+cd example
+npm install
+node app.js
+```
+
+Then open http://localhost:9002 in browser
+
+'Some devices have too big FPS, so frames are getting to example app too quickly, so it could not handle it quick enough. That could cause frames to delay.'
+
 ### Global header binary format
 
 Appears once.

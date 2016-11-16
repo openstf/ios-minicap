@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <signal.h>
 #include <iostream>
+#include <zconf.h>
 
 #include "SimpleServer.hpp"
 #include "FrameListener.hpp"
@@ -202,6 +203,7 @@ int main(int argc, char **argv) {
             pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize());
             client.releaseFrame(&frame);
             std::cout << "send" << std::endl;
+            usleep(100000);
         }
     }
 
