@@ -6,16 +6,13 @@ iOS Minicap provides a socket interface for streaming realtime screen capture da
 ## Requirements
 
 * brew install libjpeg-turbo
-* Xcode (for the libraries)
+* Xcode (for the Frameworks)
 * [cmake](https://cmake.org/)
-
 * OS X Yosemite (10.9) or higher
 * iOS 8 or higher
 * [Lightning cable](https://en.wikipedia.org/wiki/Lightning_(connector)). See the list of devices.
 
-
 ## Building
-
 
 ```
 ./build.sh

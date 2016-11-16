@@ -1,3 +1,0 @@
-libimobiledevice
-libjpeg-turbo
-libtiff
