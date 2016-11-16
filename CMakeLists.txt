@@ -10,7 +10,7 @@ set(SOURCE_FILES
         src/Banner.cpp src/Banner.hpp
         src/JpegEncoder.cpp src/JpegEncoder.hpp
         src/StreamClient.mm src/StreamClient.h
-        src/minicap.hpp)
+        src/Frame.hpp)
 
 add_executable(ios_minicap ${SOURCE_FILES})
 

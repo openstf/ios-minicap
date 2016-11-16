@@ -4,6 +4,15 @@
 #import <CoreMediaIO/CMIOHardware.h>
 #import <iostream>
 
+#include <TargetConditionals.h>
+#include <CoreMedia/CoreMedia.h>
+
+#if TARGET_RT_BIG_ENDIAN
+#   define FourCC2Str(fourcc) (const char[]){*((char*)&fourcc), *(((char*)&fourcc)+1), *(((char*)&fourcc)+2), *(((char*)&fourcc)+3),0}
+#else
+#   define FourCC2Str(fourcc) (const char[]){*(((char*)&fourcc)+3), *(((char*)&fourcc)+2), *(((char*)&fourcc)+1), *(((char*)&fourcc)+0),0}
+#endif
+
 
 @interface VideoSource : NSObject <AVCaptureVideoDataOutputSampleBufferDelegate>
 
@@ -37,35 +46,18 @@
     [super dealloc];
 }
 
-- (void) waitForDevice ; {
-    id connectionObserver = [[NSNotificationCenter defaultCenter]
-        addObserverForName:AVCaptureDeviceWasConnectedNotification
-        object:nil
-        queue:[NSOperationQueue mainQueue]
-        usingBlock:^(NSNotification *note)
-        {
-            NSLog(@"device added");
-        }];
-
-    [[NSNotificationCenter defaultCenter] addObserverForName:@"TestNotification"
-        object:nil
-        queue:[NSOperationQueue mainQueue]
-        usingBlock:^(NSNotification *note)
-        {
-            NSLog(@"test notification");
-        }];
-
-    [[NSNotificationCenter defaultCenter]
-        postNotificationName:@"TestNotification"
-        object:nil];
-    [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
-    [[NSNotificationCenter defaultCenter] removeObserver:connectionObserver];
-}
-
 - (bool) setupDevice:(NSString *)udid ; {
-    [self waitForDevice];
+    // Waiting for iOS devices to appear after enabling DAL plugins.
+    // This is a really ugly place and should be refactored
+    for (int i = 0 ; i < 10 and [AVCaptureDevice deviceWithUniqueID: udid] == nil ; i++) {
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
 
-    for (AVCaptureDevice *device in [AVCaptureDevice devices]) {
+    NSLog(@"Available devices:");
+    for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType: AVMediaTypeMuxed]) {
+        NSLog(@"%@", device.uniqueID);
+    }
+    for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType: AVMediaTypeVideo]) {
         NSLog(@"%@", device.uniqueID);
     }
 
@@ -75,35 +67,26 @@
         NSLog(@"device with udid '%@' not found", udid);
         return false;
     }
-//        int fps = 5;  // Change this value
-//        [self.mDevice lockForConfiguration:nil];
-//        [self.mDevice setActiveVideoMinFrameDuration:CMTimeMake(1, fps)];
-//        [self.mDevice setActiveVideoMaxFrameDuration:CMTimeMake(1, fps)];
-//        [self.mDevice unlockForConfiguration];
-
+    
     [self.mSession beginConfiguration];
-
-    //    [self configureCaptureSettings];
 
     // Add session input
     NSError *error;
     self.mDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:self.mDevice error:&error];
     if (self.mDeviceInput == nil) {
-        dispatch_async(dispatch_get_main_queue(), ^(void) {
-            NSLog(@"%@", error);
-        });
+        NSLog(@"%@", error);
         return false;
     } else {
         [self.mSession addInput:self.mDeviceInput];
     }
-
+    
     // Add session output
     self.mDeviceOutput = [[AVCaptureVideoDataOutput alloc] init];
     self.mDeviceOutput.alwaysDiscardsLateVideoFrames = YES;
     self.mDeviceOutput.videoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-//            AVVideoScalingModeResizeAspectFill, (id)AVVideoScalingModeKey,
-//            [NSNumber numberWithDouble:320.0], (id)kCVPixelBufferWidthKey,
-    //        [NSNumber numberWithDouble:600.0], (id)kCVPixelBufferHeightKey,
+        AVVideoScalingModeResizeAspect, (id)AVVideoScalingModeKey,
+//        [NSNumber numberWithUnsignedInt:400], (id)kCVPixelBufferWidthKey,
+//        [NSNumber numberWithUnsignedInt:600], (id)kCVPixelBufferHeightKey,
         [NSNumber numberWithUnsignedInt:kCVPixelFormatType_32BGRA], (id)kCVPixelBufferPixelFormatTypeKey,
         nil];
 
@@ -206,7 +189,7 @@ void StreamClient::lockFrame(Frame *frame) {
     std::lock_guard<std::mutex> lock(mMutex);
 
     if (!mBuffer) {
-        // TODO: handle don't have any buffer
+        // TODO: handle don't have buffer to lock
         std::cout << "Trying to lockFrame without buffer" << std::endl;
         return;
     }
@@ -227,7 +210,9 @@ void StreamClient::lockFrame(Frame *frame) {
     frame->height = CVPixelBufferGetHeight(imageBuffer);
     frame->data = CVPixelBufferGetBaseAddress(imageBuffer);
     frame->size = CVPixelBufferGetDataSize(imageBuffer);
-    //    frame->format = CVPixelBufferGetPixelFormatType(imageBuffer);
+//    OSType format = CVPixelBufferGetPixelFormatType(imageBuffer);
+//    NSLog(@"%s", FourCC2Str(format));
+//    frame->format = convertFormat(format);
 }
 
 void StreamClient::releaseFrame(Frame *frame) {
@@ -244,3 +229,13 @@ void StreamClient::releaseFrame(Frame *frame) {
     CFRelease(mLockedBuffer);
     mLockedBuffer = 0;
 }
+
+void StreamClient::setResolution(uint32_t width, uint32_t height) {
+    [impl->mVideoSource.mSession beginConfiguration];
+    NSMutableDictionary *settings = [impl->mVideoSource.mDeviceOutput.videoSettings mutableCopy];
+    [settings setObject:[NSNumber numberWithUnsignedInt:width] forKey:(id)kCVPixelBufferWidthKey];
+    [settings setObject:[NSNumber numberWithUnsignedInt:height] forKey:(id)kCVPixelBufferHeightKey];
+    impl->mVideoSource.mDeviceOutput.videoSettings = settings;
+    [impl->mVideoSource.mSession commitConfiguration];
+}
+

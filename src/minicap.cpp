@@ -12,38 +12,42 @@
 #include "StreamClient.h"
 #include "Projection.hpp"
 
-#define OK 0
-#define ERROR 1
+// MSG_NOSIGNAL does not exists on OS X
+#if defined(__APPLE__) || defined(__MACH__)
+# ifndef MSG_NOSIGNAL
+#   define MSG_NOSIGNAL SO_NOSIGPIPE
+# endif
+#endif
 
 static FrameListener gWaiter;
 
 
-void print_usage(int argc, char **argv) {
+void print_usage(char **argv) {
     char *name = NULL;
     name = strrchr(argv[0], '/');
 
-    printf("Usage: %s [OPTIONS] [FILE]\n", (name ? name + 1: argv[0]));
-    printf("Streaming screenshots from a device.\n");
-    printf("NOTE: A mounted developer disk image is required on the device, otherwise\n");
-    printf("the screenshotr service is not available.\n\n");
-    printf("  -u, --udid UDID\ttarget specific device by its 40-digit device UDID\n");
-    printf("  -p, --port PORT\tport to run server on\n");
-    printf("  -h, --help\t\tprints usage information\n");
+    printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
+    printf("Stream video from a device.\n");
+    printf("  -u, --udid UDID\t\ttarget specific device by its 40-digit device UDID\n");
+    printf("  -p, --port PORT\t\tport to run server on\n");
+    printf("  -r, --resolution RESOLUTION\tdesired resolution <w>x<h>\n");
+    printf("  -h, --help\t\t\tprints usage information\n");
     printf("\n");
 }
 
 
-void parse_args(int argc, char **argv, const char **udid, int *port) {
-    if (argc == 1 ) {
-        print_usage(argc, argv);
-        exit(ERROR);
+bool parse_args(int argc, char **argv, const char **udid, int *port, const char **resolution) {
+    if ( argc < 7 ) {
+        // Currently the easiest way to make all arguments required
+        print_usage(argv);
+        return false;
     }
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-u") || !strcmp(argv[i], "--udid")) {
             i++;
             if (!argv[i]) {
-                print_usage(argc, argv);
-                exit(ERROR);
+                print_usage(argv);
+                return false;
             }
             *udid = argv[i];
             continue;
@@ -51,22 +55,32 @@ void parse_args(int argc, char **argv, const char **udid, int *port) {
         else if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--port")) {
             i++;
             if (!argv[i]) {
-                print_usage(argc, argv);
-                exit(ERROR);
+                print_usage(argv);
+                return false;
             }
             *port = atoi(argv[i]);
             continue;
         }
+        else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--resolution")) {
+            i++;
+            if (!argv[i]) {
+                print_usage(argv);
+                return false;
+            }
+            *resolution = argv[i];
+            continue;
+        }
         else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
-            print_usage(argc, argv);
-            exit(ERROR);
+            print_usage(argv);
+            return false;
 
         }
         else {
-            print_usage(argc, argv);
-            exit(ERROR);
+            print_usage(argv);
+            return false;
         }
     }
+    return true;
 }
 
 
@@ -96,22 +110,56 @@ static void setup_signal_handler() {
 }
 
 
+static ssize_t pumps(int fd, unsigned char* data, size_t length) {
+    do {
+        // Make sure that we don't generate a SIGPIPE even if the socket doesn't
+        // exist anymore. We'll still get an EPIPE which is perfect.
+        ssize_t wrote = send(fd, data, length, MSG_NOSIGNAL);
+
+        if (wrote < 0) {
+            return wrote;
+        }
+
+        data += wrote;
+        length -= wrote;
+    }
+    while (length > 0);
+
+    return 0;
+}
+
+
+void parseResolution(const char* resolution, uint32_t* width, uint32_t* height) {
+    std::string _resolution(resolution);
+    size_t sep = _resolution.find("x");
+    *width = std::stoul(_resolution.substr(0, sep).c_str());
+    *height = std::stoul(_resolution.substr(sep+1, _resolution.length()).c_str());
+}
+
+
 int main(int argc, char **argv) {
     const char *udid = NULL;
+    const char *resolution = NULL;
     int port = 0;
 
     setup_signal_handler();
-    parse_args(argc, argv, &udid, &port);
+    if ( !parse_args(argc, argv, &udid, &port, &resolution) ) {
+        return EXIT_FAILURE;
+    }
+
+    uint32_t width = 0, height = 0;
+    parseResolution(resolution, &width, &height);
 
     StreamClient client;
     if (!client.setupDevice(udid)) {
-        return ERROR;
+        return EXIT_FAILURE;
     }
+    client.setResolution(width, height);
     client.setFrameListener(&gWaiter);
     client.start();
 
     if (!gWaiter.waitForFrame()) {
-        return ERROR;
+        return EXIT_SUCCESS;
     }
     client.stop();
 
@@ -119,9 +167,9 @@ int main(int argc, char **argv) {
 
     client.lockFrame(&frame);
     std::cout << "resolution: " << frame.width << "x" << frame.height << std::endl;
-    JpegEncoder encoder(frame.width, frame.height);
+    JpegEncoder encoder(&frame);
 
-    DisplayInfo realInfo, desiredInfo;
+    DeviceInfo realInfo, desiredInfo;
     realInfo.orientation = 0;
     realInfo.height = frame.height;
     realInfo.width = frame.width;
@@ -137,10 +185,9 @@ int main(int argc, char **argv) {
     server.start(port);
     int socket;
 
-    char* data = new char[encoder.getBufferSize() + 4];
-
+    unsigned char frameSize[4];
     while (gWaiter.isRunning() and (socket = server.accept()) > 0) {
-        printf("New client connection\n");
+        std::cout << "New client connection" << std::endl;
 
         send(socket, banner.getData(), banner.getSize(), 0);
 
@@ -150,15 +197,13 @@ int main(int argc, char **argv) {
             std::cout << pending << std::endl;
             client.lockFrame(&frame);
             encoder.encode((unsigned char*)frame.data, frame.width, frame.height);
-
-            memcpy(&data[4], encoder.getEncodedData(), encoder.getEncodedSize());
-            putUInt32LE(data, encoder.getEncodedSize());
-            send(socket, data, encoder.getEncodedSize() + 4, 0);
+            putUInt32LE(frameSize, encoder.getEncodedSize());
+            pumps(socket, frameSize, 4);
+            pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize());
             client.releaseFrame(&frame);
             std::cout << "send" << std::endl;
         }
     }
 
-    delete [] data;
-    return OK;
+    return EXIT_SUCCESS;
 }

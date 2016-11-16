@@ -2,15 +2,30 @@
 #define IOS_MINICAP_BANNER_HPP
 
 #include <cstdio>
+#include <cstdlib>
 
 #define BANNER_VERSION 1
 #define BANNER_SIZE 24
 
 
-struct DisplayInfo {
-    int width = 0;
-    int height = 0;
-    int orientation = 0;
+static void putUInt32LE(unsigned char* data, int value) {
+    data[0] = (value >> 0) & 0xFF;
+    data[1] = (value >> 8) & 0xFF;
+    data[2] = (value >> 16) & 0xFF;
+    data[3] = (value >> 24) & 0xFF;
+}
+
+
+struct DeviceInfo {
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint8_t orientation = 0;
+    float fps;
+    float density;
+    float xdpi;
+    float ydpi;
+    bool secure;
+    float size;
 };
 
 
@@ -21,26 +36,17 @@ enum {
 };
 
 
-static void
-putUInt32LE(char* data, int value) {
-    data[0] = (value & 0x000000FF) >> 0;
-    data[1] = (value & 0x0000FF00) >> 8;
-    data[2] = (value & 0x00FF0000) >> 16;
-    data[3] = (value & 0xFF000000) >> 24;
-}
-
-
 class Banner {
 public:
-    Banner(DisplayInfo realInfo, DisplayInfo desiredInfo);
+    Banner(DeviceInfo realInfo, DeviceInfo desiredInfo);
 
     ~Banner();
 
-    char * getData();
+    unsigned char * getData();
     size_t getSize();
 
 private:
-    char* mData;
+    unsigned char* mData;
     size_t mSize;
 };
 

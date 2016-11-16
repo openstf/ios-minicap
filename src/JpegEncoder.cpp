@@ -2,17 +2,16 @@
 #include "JpegEncoder.hpp"
 
 
-JpegEncoder::JpegEncoder(size_t width, size_t height) {
+JpegEncoder::JpegEncoder(Frame *frame) {
     mCompressor = tjInitCompress();
     mQuality = 80;
     mSubsampling = TJSAMP_420;
     mFormat = TJPF_BGRA;
     mBufferSize = tjBufSize(
-            width,
-            height,
+            frame->width,
+            frame->height,
             mSubsampling
     );
-
     std::cout << "Allocating " << mBufferSize << " bytes for JPEG encoder" << std::endl;
 
     mEncodedData = tjAlloc(mBufferSize);
@@ -26,9 +25,12 @@ JpegEncoder::~JpegEncoder() {
 
 
 void JpegEncoder::encode(unsigned char *data, int width, int height) {
-    tjCompress2(mCompressor, data, width, 0, height, mFormat,
+    if ( tjCompress2(mCompressor, data, width, 0, height, mFormat,
                 &mEncodedData, &mEncodedSize, mSubsampling, mQuality,
-                TJFLAG_FASTDCT | TJFLAG_NOREALLOC);
+                TJFLAG_FASTDCT | TJFLAG_NOREALLOC) < 0 ) {
+        std::cout << "Compress to JPEG failed: " << tjGetErrorStr() << std::endl;
+
+    };
 }
 
 unsigned char *JpegEncoder::getEncodedData() {

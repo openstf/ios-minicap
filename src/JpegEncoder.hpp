@@ -5,10 +5,11 @@
 #include <cstdio>
 
 #include <turbojpeg.h>
+#include "Frame.hpp"
 
 class JpegEncoder {
 public:
-    JpegEncoder(size_t width, size_t height);
+    JpegEncoder(Frame *frame);
     ~JpegEncoder();
 
     void encode(unsigned char *data, int width, int height);
@@ -25,6 +26,7 @@ private:
     unsigned char* mEncodedData;
     size_t mEncodedSize;
     unsigned long mBufferSize;
+
 };
 
 

@@ -7,7 +7,7 @@ typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 #include <cstdint>
 
 #include "FrameListener.hpp"
-#include "minicap.hpp"
+#include "Frame.hpp"
 
 struct StreamClientImpl;
 
@@ -19,6 +19,7 @@ public:
     void stop();
     void captureOutput(CMSampleBufferRef buffer);
     bool setupDevice(const char *udid);
+    void setResolution(uint32_t width, uint32_t height);
     void setFrameListener(FrameListener *listener);
 
     void lockFrame(Frame *frame);
