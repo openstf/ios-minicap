@@ -23,7 +23,7 @@ wss.on('connection', function(ws) {
   })
 
   stream.on('error', function(err) {
-    console.log(err)
+    console.error(err)
     console.error('Be sure to run `ios-minicap --port 12345`')
     process.exit(1)
   })
