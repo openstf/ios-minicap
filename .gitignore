@@ -1,3 +1,10 @@
 .idea
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+CTestTestfile.cmake
+Makefile
 build
+cmake_install.cmake
+install_manifest.txt
 xcode
