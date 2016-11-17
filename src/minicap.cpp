@@ -201,9 +201,6 @@ int main(int argc, char **argv) {
             pumps(socket, frameSize, 4);
             pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize());
             client.releaseFrame(&frame);
-            // TODO: fix how we are limiting FPS
-            // Currently we will limit it to 30
-            usleep(33333);
         }
     }
 

@@ -1,9 +1,12 @@
+var http = require('http')
+var path = require('path')
+var net = require('net')
+
+var express = require('express')
 var WebSocketServer = require('ws').Server
-  , http = require('http')
-  , express = require('express')
-  , path = require('path')
-  , net = require('net')
-  , app = express()
+var debug = require('debug')('example')
+
+var app = express()
 
 var PORT = process.env.PORT || 9002
 
@@ -19,7 +22,8 @@ wss.on('connection', function(ws) {
     port: 12345
   })
 
-  stream.on('error', function() {
+  stream.on('error', function(err) {
+    console.log(err)
     console.error('Be sure to run `ios-minicap --port 12345`')
     process.exit(1)
   })
@@ -43,7 +47,7 @@ wss.on('connection', function(ws) {
 
   function tryRead() {
     for (var chunk; (chunk = stream.read());) {
-      console.info('chunk(length=%d)', chunk.length)
+      debug('chunk(length=%d)', chunk.length)
       for (var cursor = 0, len = chunk.length; cursor < len;) {
         if (readBannerBytes < bannerLength) {
           switch (readBannerBytes) {
@@ -109,18 +113,18 @@ wss.on('connection', function(ws) {
           readBannerBytes += 1
 
           if (readBannerBytes === bannerLength) {
-            console.log('banner', banner)
+            debug('banner', banner)
           }
         }
         else if (readFrameBytes < 4) {
           frameBodyLength += (chunk[cursor] << (readFrameBytes * 8)) >>> 0
           cursor += 1
           readFrameBytes += 1
-          console.info('headerbyte%d(val=%d)', readFrameBytes, frameBodyLength)
+          debug('headerbyte%d(val=%d)', readFrameBytes, frameBodyLength)
         }
         else {
           if (len - cursor >= frameBodyLength) {
-            console.info('bodyfin(len=%d,cursor=%d)', frameBodyLength, cursor)
+            debug('bodyfin(len=%d,cursor=%d)', frameBodyLength, cursor)
 
             frameBody = Buffer.concat([
               frameBody
@@ -143,7 +147,7 @@ wss.on('connection', function(ws) {
             frameBody = new Buffer(0)
           }
           else {
-            console.info('body(len=%d)', len - cursor)
+            debug('body(len=%d)', len - cursor)
 
             frameBody = Buffer.concat([
               frameBody
