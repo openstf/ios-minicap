@@ -3,8 +3,9 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <signal.h>
-#include <iostream>
 #include <zconf.h>
+
+#include <iostream>
 
 #include "SimpleServer.hpp"
 #include "FrameListener.hpp"
@@ -194,15 +195,15 @@ int main(int argc, char **argv) {
         client.start();
         int pending;
         while (gWaiter.isRunning() and (pending = gWaiter.waitForFrame()) > 0) {
-            std::cout << pending << std::endl;
             client.lockFrame(&frame);
-            encoder.encode((unsigned char*)frame.data, frame.width, frame.height);
+            encoder.encode(&frame);
             putUInt32LE(frameSize, encoder.getEncodedSize());
             pumps(socket, frameSize, 4);
             pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize());
             client.releaseFrame(&frame);
-            std::cout << "send" << std::endl;
-            usleep(100000);
+            // TODO: fix how we are limiting FPS
+            // Currently we will limit it to 30
+            usleep(33333);
         }
     }
 

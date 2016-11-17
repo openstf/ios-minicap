@@ -19,7 +19,6 @@ void FrameListener::onFrameAvailable() {
     std::unique_lock<std::mutex> lock(mMutex);
     mPendingFrames += 1;
     mCondition.notify_one();
-    std::cout << "new frame available" << std::endl;
 }
 
 int FrameListener::waitForFrame() {

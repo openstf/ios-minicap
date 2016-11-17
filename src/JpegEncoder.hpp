@@ -12,7 +12,7 @@ public:
     JpegEncoder(Frame *frame);
     ~JpegEncoder();
 
-    void encode(unsigned char *data, int width, int height);
+    void encode(Frame *frame);
     unsigned char* getEncodedData();
     size_t getEncodedSize();
     unsigned long getBufferSize();

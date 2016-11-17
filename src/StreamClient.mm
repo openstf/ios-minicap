@@ -210,6 +210,7 @@ void StreamClient::lockFrame(Frame *frame) {
     frame->height = CVPixelBufferGetHeight(imageBuffer);
     frame->data = CVPixelBufferGetBaseAddress(imageBuffer);
     frame->size = CVPixelBufferGetDataSize(imageBuffer);
+    frame->bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
 //    OSType format = CVPixelBufferGetPixelFormatType(imageBuffer);
 //    NSLog(@"%s", FourCC2Str(format));
 //    frame->format = convertFormat(format);

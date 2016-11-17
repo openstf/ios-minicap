@@ -24,10 +24,19 @@ JpegEncoder::~JpegEncoder() {
 }
 
 
-void JpegEncoder::encode(unsigned char *data, int width, int height) {
-    if ( tjCompress2(mCompressor, data, width, 0, height, mFormat,
-                &mEncodedData, &mEncodedSize, mSubsampling, mQuality,
-                TJFLAG_FASTDCT | TJFLAG_NOREALLOC) < 0 ) {
+void JpegEncoder::encode(Frame *frame) {
+    if ( tjCompress2(
+             mCompressor,
+             (unsigned char*)frame->data,
+             frame->width,
+             frame->bytesPerRow,
+             frame->height,
+             mFormat,
+             &mEncodedData,
+             &mEncodedSize,
+             mSubsampling,
+             mQuality,
+             TJFLAG_FASTDCT | TJFLAG_NOREALLOC) < 0 ) {
         std::cout << "Compress to JPEG failed: " << tjGetErrorStr() << std::endl;
 
     };
