@@ -194,7 +194,6 @@ int main(int argc, char **argv) {
 
         client.start();
         int pending;
-        unsigned int frameCounter = 0;
         while (gWaiter.isRunning() and (pending = gWaiter.waitForFrame()) > 0) {
             client.lockFrame(&frame);
             encoder.encode(&frame);
@@ -202,7 +201,6 @@ int main(int argc, char **argv) {
             pumps(socket, frameSize, 4);
             pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize());
             client.releaseFrame(&frame);
-            std::cout << '\r' << "Frame " << ++frameCounter << std::flush;
         }
     }
 
