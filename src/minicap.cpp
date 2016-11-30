@@ -108,14 +108,15 @@ static void setup_signal_handler() {
     sigemptyset(&sa.sa_mask);
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
+    // we want to just ignore the SIGPIPE and get a EPIPE when socket is closed
+    signal(SIGPIPE, SIG_IGN);
 }
 
 
 static ssize_t pumps(int fd, unsigned char* data, size_t length) {
     do {
-        // Make sure that we don't generate a SIGPIPE even if the socket doesn't
-        // exist anymore. We'll still get an EPIPE which is perfect.
-        ssize_t wrote = send(fd, data, length, MSG_NOSIGNAL);
+        // SIGPIPE is set to ignored so we will just get EPIPE instead
+        ssize_t wrote = send(fd, data, length, 0);
 
         if (wrote < 0) {
             return wrote;
@@ -193,15 +194,19 @@ int main(int argc, char **argv) {
         send(socket, banner.getData(), banner.getSize(), 0);
 
         client.start();
-        int pending;
-        while (gWaiter.isRunning() and (pending = gWaiter.waitForFrame()) > 0) {
+        while (gWaiter.isRunning() and gWaiter.waitForFrame() > 0) {
             client.lockFrame(&frame);
             encoder.encode(&frame);
-            putUInt32LE(frameSize, encoder.getEncodedSize());
-            pumps(socket, frameSize, 4);
-            pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize());
             client.releaseFrame(&frame);
+            putUInt32LE(frameSize, encoder.getEncodedSize());
+            if ( pumps(socket, frameSize, 4) < 0 ) {
+                break;
+            }
+            if ( pumps(socket, encoder.getEncodedData(), encoder.getEncodedSize()) < 0 ) {
+                break;
+            }
         }
+        client.stop();
     }
 
     return EXIT_SUCCESS;
