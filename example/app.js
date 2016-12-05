@@ -10,8 +10,14 @@ const { BannerParser, FrameParser } = require('minicap')
 const app = express()
 
 const PORT = process.env.PORT || 9002
+const MINICAP_PORT = process.env.MINICAP_PORT || 12345
 
 app.use(express.static(path.join(__dirname, '/public')))
+app.get('/config.js', (req, res) => {
+  res.status(200)
+    .type('js')
+    .send(`var WSURL = "ws://localhost:${PORT}"`)
+})
 
 const server = http.createServer(app)
 const wss = new WebSocketServer({ server: server })
@@ -20,12 +26,12 @@ wss.on('connection', (ws) => {
   console.info('Got a client')
 
   const stream = net.connect({
-    port: 12345
+    port: MINICAP_PORT
   })
 
   stream.on('error', (err) => {
     console.error(err)
-    console.error('Be sure to run `ios-minicap --port 12345`')
+    console.error('Be sure to run ios-minicap on port ' + MINICAP_PORT)
     process.exit(1)
   })
 

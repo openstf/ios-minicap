@@ -1,7 +1,7 @@
 <!doctype html>
 
 <canvas id="screen" style="border: 1px solid red;"></canvas>
-
+<script src="/config.js"></script>
 <script>
 /*jshint browser:true*/
 
@@ -164,7 +164,7 @@ var pipeline = new Pipeline()
 var canvas = document.getElementById('screen')
 var renderLoop = new RenderLoop(pipeline, canvas)
 
-var ws = new WebSocket('ws://localhost:9002', 'minicap')
+var ws = new WebSocket(WSURL, 'minicap')
 ws.binaryType = 'blob'
 
 ws.onclose = function() {
