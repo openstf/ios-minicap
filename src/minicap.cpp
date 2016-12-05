@@ -6,6 +6,7 @@
 #include <zconf.h>
 
 #include <iostream>
+#include <thread>
 
 #include "SimpleServer.hpp"
 #include "FrameListener.hpp"
@@ -139,19 +140,7 @@ void parseResolution(const char* resolution, uint32_t* width, uint32_t* height) 
 }
 
 
-int main(int argc, char **argv) {
-    const char *udid = NULL;
-    const char *resolution = NULL;
-    int port = 0;
-
-    setup_signal_handler();
-    if ( !parse_args(argc, argv, &udid, &port, &resolution) ) {
-        return EXIT_FAILURE;
-    }
-
-    uint32_t width = 0, height = 0;
-    parseResolution(resolution, &width, &height);
-
+int streamDevice(int port, const char* udid, int width, int height) {
     StreamClient client;
     if (!client.setupDevice(udid)) {
         return EXIT_FAILURE;
@@ -208,6 +197,29 @@ int main(int argc, char **argv) {
         }
         client.stop();
     }
+}
 
+
+int main(int argc, char **argv) {
+    const char *udid = NULL;
+    const char *resolution = NULL;
+    int port = 0;
+
+    setup_signal_handler();
+    if ( !parse_args(argc, argv, &udid, &port, &resolution) ) {
+        return EXIT_FAILURE;
+    }
+
+    uint32_t width = 0, height = 0;
+    parseResolution(resolution, &width, &height);
+
+    for (auto const& _udid: StreamClient::getUdids()) {
+        std::cout << _udid << std::endl;
+    }
+
+    std::thread thr(streamDevice, port, udid, width, height);
+    std::thread thr2(streamDevice, port+1, udid, width, height);
+    thr.join();
+    thr2.join();
     return EXIT_SUCCESS;
 }

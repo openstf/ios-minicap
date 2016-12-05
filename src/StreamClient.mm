@@ -84,9 +84,6 @@
     self.mDeviceOutput = [[AVCaptureVideoDataOutput alloc] init];
     self.mDeviceOutput.alwaysDiscardsLateVideoFrames = YES;
     self.mDeviceOutput.videoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-        AVVideoScalingModeResizeAspect, (id)AVVideoScalingModeKey,
-//        [NSNumber numberWithUnsignedInt:400], (id)kCVPixelBufferWidthKey,
-//        [NSNumber numberWithUnsignedInt:600], (id)kCVPixelBufferHeightKey,
         [NSNumber numberWithUnsignedInt:kCVPixelFormatType_32BGRA], (id)kCVPixelBufferPixelFormatTypeKey,
         nil];
 
@@ -238,5 +235,16 @@ void StreamClient::setResolution(uint32_t width, uint32_t height) {
     [settings setObject:[NSNumber numberWithUnsignedInt:height] forKey:(id)kCVPixelBufferHeightKey];
     impl->mVideoSource.mDeviceOutput.videoSettings = settings;
     [impl->mVideoSource.mSession commitConfiguration];
+}
+
+std::vector<std::string> StreamClient::getUdids() {
+    std::vector<std::string> udids;
+    for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType: AVMediaTypeMuxed]) {
+        udids.push_back(std::string([device.uniqueID UTF8String]));
+    }
+    for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType: AVMediaTypeVideo]) {
+        udids.push_back(std::string([device.uniqueID UTF8String]));
+    }
+    return udids;
 }
 

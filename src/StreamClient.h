@@ -5,6 +5,7 @@ typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 
 #include <cstdio>
 #include <cstdint>
+#include <vector>
 
 #include "FrameListener.hpp"
 #include "Frame.hpp"
@@ -21,6 +22,7 @@ public:
     bool setupDevice(const char *udid);
     void setResolution(uint32_t width, uint32_t height);
     void setFrameListener(FrameListener *listener);
+    static std::vector<std::string> getUdids();
 
     void lockFrame(Frame *frame);
     void releaseFrame(Frame *frame);
