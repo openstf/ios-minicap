@@ -49,9 +49,11 @@
 - (bool) setupDevice:(NSString *)udid ; {
     // Waiting for iOS devices to appear after enabling DAL plugins.
     // This is a really ugly place and should be refactored
-    for (int i = 0 ; i < 10 and [AVCaptureDevice deviceWithUniqueID: udid] == nil ; i++) {
-        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
-    }
+//    for (int i = 0 ; i < 10 and [AVCaptureDevice deviceWithUniqueID: udid] == nil ; i++) {
+//        NSLog(@"tick");
+//        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+//    }
+    while ([AVCaptureDevice deviceWithUniqueID: udid] == nil );
 
     NSLog(@"Available devices:");
     for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType: AVMediaTypeMuxed]) {
@@ -87,7 +89,8 @@
         [NSNumber numberWithUnsignedInt:kCVPixelFormatType_32BGRA], (id)kCVPixelBufferPixelFormatTypeKey,
         nil];
 
-    dispatch_queue_t videoQueue = dispatch_queue_create("videoQueue", DISPATCH_QUEUE_SERIAL);
+    const char *udid_c_str = [udid cStringUsingEncoding:NSASCIIStringEncoding];
+    dispatch_queue_t videoQueue = dispatch_queue_create(udid_c_str, DISPATCH_QUEUE_SERIAL);
 
     [self.mDeviceOutput setSampleBufferDelegate:self queue:videoQueue];
 
@@ -107,24 +110,10 @@ struct StreamClientImpl {
     VideoSource* mVideoSource;
 };
 
-void EnableDALDevices()
-{
-    std::cout << "EnableDALDevices" << std::endl;
-    CMIOObjectPropertyAddress prop = {
-            kCMIOHardwarePropertyAllowScreenCaptureDevices,
-            kCMIOObjectPropertyScopeGlobal,
-            kCMIOObjectPropertyElementMaster
-    };
-    UInt32 allow = 1;
-    CMIOObjectSetPropertyData(kCMIOObjectSystemObject,
-                              &prop, 0, NULL,
-                              sizeof(allow), &allow );
-}
+
 
 
 StreamClient::StreamClient() {
-    EnableDALDevices();
-
     impl = new StreamClientImpl();
     impl->mVideoSource = [[VideoSource alloc] init: this];
 

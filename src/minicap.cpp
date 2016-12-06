@@ -13,6 +13,8 @@
 #include "Banner.hpp"
 #include "JpegEncoder.hpp"
 #include "StreamClient.h"
+#import <CoreMediaIO/CMIOHardware.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 // MSG_NOSIGNAL does not exists on OS X
 #if defined(__APPLE__) || defined(__MACH__)
@@ -21,7 +23,7 @@
 # endif
 #endif
 
-static FrameListener gWaiter;
+//static FrameListener gWaiter;
 
 
 void print_usage(char **argv) {
@@ -30,7 +32,8 @@ void print_usage(char **argv) {
 
     printf("Usage: %s [OPTIONS]\n", (name ? name + 1: argv[0]));
     printf("Stream video from a device.\n");
-    printf("  -u, --udid UDID\t\ttarget specific device by its 40-digit device UDID\n");
+    printf("  -u1, --udid1 UDID\t\ttarget specific device by its 40-digit device UDID\n");
+    printf("  -u2, --udid2 UDID\t\ttarget specific device by its 40-digit device UDID\n");
     printf("  -p, --port PORT\t\tport to run server on\n");
     printf("  -r, --resolution RESOLUTION\tdesired resolution <w>x<h>\n");
     printf("  -h, --help\t\t\tprints usage information\n");
@@ -38,20 +41,29 @@ void print_usage(char **argv) {
 }
 
 
-bool parse_args(int argc, char **argv, const char **udid, int *port, const char **resolution) {
+bool parse_args(int argc, char **argv, const char **udid1, const char **udid2, int *port, const char **resolution) {
     if ( argc < 7 ) {
         // Currently the easiest way to make all arguments required
         print_usage(argv);
         return false;
     }
     for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "-u") || !strcmp(argv[i], "--udid")) {
+        if (!strcmp(argv[i], "-u1") || !strcmp(argv[i], "--udid1")) {
             i++;
             if (!argv[i]) {
                 print_usage(argv);
                 return false;
             }
-            *udid = argv[i];
+            *udid1 = argv[i];
+            continue;
+        }
+        if (!strcmp(argv[i], "-u2") || !strcmp(argv[i], "--udid2")) {
+            i++;
+            if (!argv[i]) {
+                print_usage(argv);
+                return false;
+            }
+            *udid2 = argv[i];
             continue;
         }
         else if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--port")) {
@@ -90,11 +102,11 @@ static void signal_handler(int signum) {
     switch (signum) {
         case SIGINT:
             printf("Received SIGINT, stopping\n");
-            gWaiter.stop();
+            CFRunLoopStop(CFRunLoopGetMain());
             break;
         case SIGTERM:
             printf("Received SIGTERM, stopping\n");
-            gWaiter.stop();
+            CFRunLoopStop(CFRunLoopGetMain());
             break;
         default:
             abort();
@@ -141,15 +153,16 @@ void parseResolution(const char* resolution, uint32_t* width, uint32_t* height) 
 
 
 int streamDevice(int port, const char* udid, int width, int height) {
+    FrameListener waiter;
     StreamClient client;
     if (!client.setupDevice(udid)) {
         return EXIT_FAILURE;
     }
     client.setResolution(width, height);
-    client.setFrameListener(&gWaiter);
+    client.setFrameListener(&waiter);
     client.start();
 
-    if (!gWaiter.waitForFrame()) {
+    if (!waiter.waitForFrame()) {
         return EXIT_SUCCESS;
     }
     client.stop();
@@ -177,13 +190,13 @@ int streamDevice(int port, const char* udid, int width, int height) {
     int socket;
 
     unsigned char frameSize[4];
-    while (gWaiter.isRunning() and (socket = server.accept()) > 0) {
+    while (waiter.isRunning() and (socket = server.accept()) > 0) {
         std::cout << "New client connection" << std::endl;
 
         send(socket, banner.getData(), banner.getSize(), 0);
 
         client.start();
-        while (gWaiter.isRunning() and gWaiter.waitForFrame() > 0) {
+        while (waiter.isRunning() and waiter.waitForFrame() > 0) {
             client.lockFrame(&frame);
             encoder.encode(&frame);
             client.releaseFrame(&frame);
@@ -200,13 +213,29 @@ int streamDevice(int port, const char* udid, int width, int height) {
 }
 
 
+void EnableDALDevices()
+{
+    std::cout << "EnableDALDevices" << std::endl;
+    CMIOObjectPropertyAddress prop = {
+            kCMIOHardwarePropertyAllowScreenCaptureDevices,
+            kCMIOObjectPropertyScopeGlobal,
+            kCMIOObjectPropertyElementMaster
+    };
+    UInt32 allow = 1;
+    CMIOObjectSetPropertyData(kCMIOObjectSystemObject,
+                              &prop, 0, NULL,
+                              sizeof(allow), &allow );
+}
+
+
 int main(int argc, char **argv) {
-    const char *udid = NULL;
+    const char *udid1 = NULL;
+    const char *udid2 = NULL;
     const char *resolution = NULL;
     int port = 0;
 
     setup_signal_handler();
-    if ( !parse_args(argc, argv, &udid, &port, &resolution) ) {
+    if ( !parse_args(argc, argv, &udid1, &udid2, &port, &resolution) ) {
         return EXIT_FAILURE;
     }
 
@@ -217,9 +246,9 @@ int main(int argc, char **argv) {
         std::cout << _udid << std::endl;
     }
 
-    std::thread thr(streamDevice, port, udid, width, height);
-    std::thread thr2(streamDevice, port+1, udid, width, height);
-    thr.join();
-    thr2.join();
+    EnableDALDevices();
+    std::thread thr(streamDevice, port, udid1, width, height);
+    std::thread thr2(streamDevice, port+1, udid2, width, height);
+    CFRunLoopRun();
     return EXIT_SUCCESS;
 }
