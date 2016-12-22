@@ -5,7 +5,7 @@ const net = require('net')
 const express = require('express')
 const WebSocketServer = require('ws').Server
 const debug = require('debug')('example')
-const { BannerParser, FrameParser } = require('minicap')
+const { Parser } = require('minicap')
 
 const app = express()
 
@@ -29,10 +29,6 @@ wss.on('connection', (ws) => {
     process.exit(1)
   })
 
-  let bannerParsed = false
-  const bannerParser = new BannerParser()
-  const frameParser = new FrameParser()
-
   function onBannerAvailable (banner) {
     debug('banner', banner)
   }
@@ -43,24 +39,14 @@ wss.on('connection', (ws) => {
     })
   }
 
+  const parser = new Parser({
+    onBannerAvailable,
+    onFrameAvailable
+  })
+
   function tryParse () {
     for (let chunk; (chunk = stream.read());) {
-      do {
-        if (!bannerParsed) {
-          const result = bannerParser.parse(chunk)
-          if (result.state === BannerParser.COMPLETE) {
-            bannerParsed = true
-            onBannerAvailable(result.take())
-          }
-          chunk = result.rest
-        } else {
-          const result = frameParser.parse(chunk)
-          if (result.state === FrameParser.COMPLETE) {
-            onFrameAvailable(result.take())
-          }
-          chunk = result.rest
-        }
-      } while (chunk.length)
+      parser.parse(chunk)
     }
   }
 
