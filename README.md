@@ -5,7 +5,7 @@ iOS Minicap provides a socket interface for streaming realtime screen capture da
 
 ## Requirements
 
-* brew install libjpeg-turbo
+* brew install libjpeg-turbo (>=1.5 is required)
 * Xcode (for the Frameworks)
 * [cmake](https://cmake.org/)
 * OS X Yosemite (10.9) or higher
@@ -26,6 +26,7 @@ The minicap protocol is a simple push-based binary protocol. When you first conn
 
 Before run, please, check that:
 
+* Node.js 6+ is used (required to run example app.js)
 * the computer is trusted by the phone
 * the phone screen is not turned off
 
@@ -36,6 +37,7 @@ You can try it using:
 ```
 
 And in another window:
+
 
 ```
 cd example
