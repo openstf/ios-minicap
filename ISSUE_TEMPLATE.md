@@ -1,8 +1,8 @@
 **Steps to reproduce**
 
-**Expected results
+**Expected results**
 
-**Actual results
+**Actual results**
 
 **Environment(version of libraries, mac OS, iOS, etc)**
 
